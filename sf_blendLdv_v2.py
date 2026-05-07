@@ -5772,6 +5772,23 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
         if mesh is None:
             return indices
 
+        if getattr(mesh, "is_editmode", False):
+            try:
+                bm = bmesh.from_edit_mesh(mesh)
+                layer = self._get_bmesh_freestyle_layer(bm)
+                if layer is None:
+                    return indices
+                bm.edges.ensure_lookup_table()
+                for edge in bm.edges:
+                    try:
+                        if bool(edge[layer]):
+                            indices.add(int(edge.index))
+                    except Exception:
+                        continue
+                return indices
+            except Exception:
+                pass
+
         bm = bmesh.new()
         try:
             bm.from_mesh(mesh)
@@ -5897,9 +5914,28 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
 
         try:
             freestyle_attr.data[edge_index].value = bool(value)
+            try:
+                mesh.update()
+            except Exception:
+                pass
             return True
         except Exception:
             pass
+
+        if getattr(mesh, "is_editmode", False):
+            try:
+                bm = bmesh.from_edit_mesh(mesh)
+                bm.edges.ensure_lookup_table()
+                if edge_index >= len(bm.edges):
+                    return False
+                layer = self._get_bmesh_freestyle_layer(bm)
+                if layer is None:
+                    return False
+                bm.edges[edge_index][layer] = bool(value)
+                bmesh.update_edit_mesh(mesh, loop_triangles=False, destructive=False)
+                return True
+            except Exception:
+                pass
 
         bm = bmesh.new()
         try:
@@ -6058,10 +6094,12 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
             if copied > 0:
                 return copied
             return self._transfer_edges_by_topology(src, tgt)
-        copied = self._transfer_edges_via_data_transfer(src, tgt, edge_mapping="NEAREST")
-        if copied > 0:
-            return copied
-        return self._transfer_edges_by_distance(src, tgt)
+        if self.transfer_mode == "DISTANCE":
+            copied = self._transfer_edges_via_data_transfer(src, tgt, edge_mapping="NEAREST")
+            if copied > 0:
+                return copied
+            return self._transfer_edges_by_distance(src, tgt)
+        return 0
 
     def _transfer_edges_by_topology(self, src, tgt):
         depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -6090,7 +6128,9 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
             tgt_eval.to_mesh_clear()
             if copied > 0:
                 return copied
-        return self._transfer_edges_by_distance(src, tgt, src_eval, tgt_eval, src_eval_mesh, tgt_eval_mesh)
+        src_eval.to_mesh_clear()
+        tgt_eval.to_mesh_clear()
+        return 0
 
     def _transfer_edges_by_distance(self, src, tgt, src_eval=None, tgt_eval=None, src_eval_mesh=None, tgt_eval_mesh=None):
         depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -6165,9 +6205,9 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
             tgt_eval.to_mesh_clear()
             if copied > 0:
                 return copied
-
-        result = self._transfer_edges_by_distance(src, tgt, src_eval, tgt_eval, src_eval_mesh, tgt_eval_mesh)
-        return result
+        src_eval.to_mesh_clear()
+        tgt_eval.to_mesh_clear()
+        return 0
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self, width=360)
@@ -6217,6 +6257,11 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
 
         if src.type == 'EMPTY' and tgt.type == 'EMPTY':
             pairs, edges = self._transfer_for_two_empties(src, tgt)
+            if self.transfer_mode == "DISTANCE":
+                self.report({'INFO'}, f"[Batch][DISTANCE] {pairs} pairs, {edges} edges copied (threshold={self.distance})")
+            else:
+                self.report({'INFO'}, f"[Batch][{self.transfer_mode}] {pairs} pairs, {edges} edges copied")
+            return {'FINISHED'}
             self.report({'INFO'}, f"[Batch] {pairs} 쌍 처리, {edges} 엣지 복사 (거리={self.distance})")
             return {'FINISHED'}
 
@@ -6225,6 +6270,11 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
             return {'CANCELLED'}
 
         copied = self.transfer_edges_pair(src, tgt)
+        if self.transfer_mode == "DISTANCE":
+            self.report({'INFO'}, f"[Single][DISTANCE] '{src.name}' -> '{tgt.name}': {copied} edges (threshold={self.distance})")
+        else:
+            self.report({'INFO'}, f"[Single][{self.transfer_mode}] '{src.name}' -> '{tgt.name}': {copied} edges")
+        return {'FINISHED'}
         self.report({'INFO'}, f"[Single] '{src.name}' → '{tgt.name}': {copied} 엣지 (거리={self.distance})")
         return {'FINISHED'}
 
