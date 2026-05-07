@@ -5722,6 +5722,12 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
         base = _strip_blender_numeric_suffix(name)
         return base if self.case_sensitive else base.lower()
 
+
+    def _edge_signature(self, edge):
+        try:
+            return tuple(sorted((int(edge.vertices[0]), int(edge.vertices[1]))))
+        except Exception:
+            return None
     def _edge_has_freestyle_mark(self, mesh, edge):
         if hasattr(edge, "use_freestyle_mark"):
             return bool(edge.use_freestyle_mark)
@@ -5764,7 +5770,7 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
             return False
 
     def transfer_edges_pair(self, src, tgt):
-        """src의 Freestyle Edge → tgt에 전이 (엣지 중점 KDTree, distance 사용, evaluated mesh 좌표 보정)"""
+        """src? Freestyle Edge ? tgt? ?? (???? ??, ??? ?? KDTree fallback)"""
         depsgraph = bpy.context.evaluated_depsgraph_get()
         src_eval = src.evaluated_get(depsgraph)
         tgt_eval = tgt.evaluated_get(depsgraph)
@@ -5776,17 +5782,30 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
         src_mesh = src.data
         tgt_mesh = tgt.data
 
-        # 🔹 Freestyle 마크가 지정된 원본 엣지만 사용
         marked_src_edges = [e for e in src_mesh.edges if self._edge_has_freestyle_mark(src_mesh, e)]
         if not marked_src_edges:
             src_eval.to_mesh_clear()
             tgt_eval.to_mesh_clear()
             return 0
 
-        # 🔹 evaluated mesh에서 실제 좌표(변형 후)를 가져옴
+        # ?? ????? ??? ??? vertex index ???? ?? ??
+        src_signatures = {self._edge_signature(e) for e in marked_src_edges}
+        src_signatures.discard(None)
+        if src_signatures and len(src_mesh.vertices) == len(tgt_mesh.vertices) and len(src_mesh.edges) == len(tgt_mesh.edges):
+            copied = 0
+            for e_tgt in tgt_mesh.edges:
+                if self._edge_signature(e_tgt) in src_signatures:
+                    if self._set_edge_freestyle_mark(tgt_mesh, e_tgt.index, True):
+                        copied += 1
+            if copied > 0:
+                src_eval.to_mesh_clear()
+                tgt_eval.to_mesh_clear()
+                return copied
+
+        # evaluated mesh?? ?? ??(?? ?) ???
         eval_verts = [src_world @ v.co for v in src_eval_mesh.vertices]
 
-        # 🔹 KDTree 구성 (보정된 좌표 사용)
+        # KDTree ?? (??? ?? ??)
         kd = kdtree.KDTree(len(marked_src_edges))
         for e in marked_src_edges:
             try:
@@ -5797,7 +5816,7 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
                 pass
         kd.balance()
 
-        # 🔹 타깃 엣지 비교
+        # ?? ?? ??
         copied = 0
         for e_tgt in tgt_mesh.edges:
             try:
@@ -5811,7 +5830,6 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
             except:
                 pass
 
-        # cleanup
         src_eval.to_mesh_clear()
         tgt_eval.to_mesh_clear()
         return copied
