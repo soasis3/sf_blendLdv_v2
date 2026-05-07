@@ -5844,6 +5844,18 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
         except Exception:
             return False
 
+    def _edge_mark_indices(self, mesh):
+        indices = set()
+        if mesh is None:
+            return indices
+        try:
+            for edge in mesh.edges:
+                if self._edge_has_freestyle_mark(mesh, edge):
+                    indices.add(int(edge.index))
+        except Exception:
+            pass
+        return indices
+
     def _collect_marked_edges(self, mesh_candidates):
         for mesh in mesh_candidates:
             if mesh is None:
@@ -5856,11 +5868,115 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
                 return mesh, marked
         return None, []
 
+    def _transfer_edges_via_data_transfer(self, src, tgt, edge_mapping="TOPOLOGY"):
+        if src is None or tgt is None or src.type != 'MESH' or tgt.type != 'MESH':
+            return 0
+
+        prev_active = None
+        prev_selected = []
+        prev_mode = None
+        try:
+            prev_active = bpy.context.view_layer.objects.active
+        except Exception:
+            prev_active = None
+        try:
+            prev_selected = list(bpy.context.selected_objects)
+        except Exception:
+            prev_selected = []
+        try:
+            prev_mode = bpy.context.mode
+        except Exception:
+            prev_mode = None
+
+        before_indices = self._edge_mark_indices(tgt.data)
+
+        try:
+            if prev_mode and prev_mode != 'OBJECT':
+                try:
+                    bpy.ops.object.mode_set(mode='OBJECT')
+                except Exception:
+                    pass
+
+            for obj in prev_selected:
+                try:
+                    obj.select_set(False)
+                except Exception:
+                    pass
+
+            try:
+                src.select_set(True)
+                tgt.select_set(True)
+            except Exception:
+                pass
+
+            try:
+                bpy.context.view_layer.objects.active = src
+            except Exception:
+                pass
+
+            override_kwargs = {
+                "active_object": src,
+                "object": src,
+                "selected_objects": [src, tgt],
+                "selected_editable_objects": [src, tgt],
+            }
+            try:
+                override_kwargs["view_layer"] = bpy.context.view_layer
+            except Exception:
+                pass
+
+            try:
+                with bpy.context.temp_override(**override_kwargs):
+                    bpy.ops.object.data_transfer(
+                        data_type='FREESTYLE_EDGE',
+                        edge_mapping=edge_mapping,
+                        use_reverse_transfer=False,
+                        use_freeze=True,
+                    )
+            except TypeError:
+                with bpy.context.temp_override(**override_kwargs):
+                    bpy.ops.object.data_transfer(
+                        data_type='FREESTYLE_EDGE',
+                        edge_mapping=edge_mapping,
+                        use_reverse_transfer=False,
+                    )
+            except Exception:
+                return 0
+
+            after_indices = self._edge_mark_indices(tgt.data)
+            return len(after_indices.difference(before_indices))
+        finally:
+            try:
+                for obj in bpy.context.selected_objects:
+                    obj.select_set(False)
+            except Exception:
+                pass
+            for obj in prev_selected:
+                try:
+                    obj.select_set(True)
+                except Exception:
+                    pass
+            try:
+                bpy.context.view_layer.objects.active = prev_active
+            except Exception:
+                pass
+            if prev_mode and prev_mode != 'OBJECT':
+                try:
+                    bpy.ops.object.mode_set(mode=prev_mode)
+                except Exception:
+                    pass
+
     def transfer_edges_pair(self, src, tgt):
         if self.transfer_mode == "UV":
             return self._transfer_edges_by_uv(src, tgt)
         if self.transfer_mode == "TOPOLOGY":
+            copied = self._transfer_edges_via_data_transfer(src, tgt, edge_mapping="TOPOLOGY")
+            if copied > 0:
+                return copied
             return self._transfer_edges_by_topology(src, tgt)
+        copied = self._transfer_edges_via_data_transfer(src, tgt, edge_mapping="NEAREST")
+        if copied > 0:
+            return copied
         return self._transfer_edges_by_distance(src, tgt)
 
     def _transfer_edges_by_topology(self, src, tgt):
