@@ -5712,6 +5712,17 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
         precision=8
     )
 
+    transfer_mode: bpy.props.EnumProperty(
+        name="Match Mode",
+        description="Freestyle edge? ?? ???? ??? ??",
+        items=[
+            ("TOPOLOGY", "Topology", "?? ????? edge index ???? ??"),
+            ("DISTANCE", "Distance", "?? ?? ??? ??"),
+            ("UV", "UV", "?? UV ?? ???? ??"),
+        ],
+        default="TOPOLOGY",
+    )
+
     case_sensitive: bpy.props.BoolProperty(
         name="Case Sensitive Match",
         description="이름 매칭 시 대소문자 구분",
@@ -5723,18 +5734,78 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
         return base if self.case_sensitive else base.lower()
 
 
+    def _edge_domain_is_edge(self, attr):
+        domain = getattr(attr, "domain", None)
+        if domain is None:
+            return False
+        return str(domain).upper() == "EDGE"
+
+    def _find_freestyle_edge_attribute(self, mesh):
+        attributes = getattr(mesh, "attributes", None)
+        if attributes is None:
+            return None
+
+        preferred_names = ("freestyle_edge", "use_freestyle_mark", "freestyle_mark")
+        fallback = []
+        try:
+            fallback = list(attributes)
+        except Exception:
+            fallback = []
+
+        for attr in fallback:
+            name = getattr(attr, "name", "")
+            if name in preferred_names and self._edge_domain_is_edge(attr):
+                return attr
+
+        for attr in fallback:
+            name = getattr(attr, "name", "")
+            lowered = name.lower()
+            if ("freestyle" in lowered or "mark" in lowered) and self._edge_domain_is_edge(attr):
+                return attr
+
+        for name in preferred_names:
+            try:
+                attr = attributes.get(name)
+            except Exception:
+                attr = None
+            if attr is not None and self._edge_domain_is_edge(attr):
+                return attr
+
+        return None
+
     def _edge_signature(self, edge):
         try:
             return tuple(sorted((int(edge.vertices[0]), int(edge.vertices[1]))))
         except Exception:
             return None
+
+    def _uv_signature(self, mesh, edge):
+        try:
+            uv_layer = getattr(mesh.uv_layers, "active", None)
+            if uv_layer is None:
+                return None
+            data = uv_layer.data
+            uv_a = None
+            uv_b = None
+            for loop in mesh.loops:
+                if loop.vertex_index == edge.vertices[0]:
+                    uv_a = tuple(round(v, 6) for v in data[loop.index].uv)
+                elif loop.vertex_index == edge.vertices[1]:
+                    uv_b = tuple(round(v, 6) for v in data[loop.index].uv)
+                if uv_a and uv_b:
+                    break
+            if not uv_a or not uv_b:
+                return None
+            return tuple(sorted((uv_a, uv_b)))
+        except Exception:
+            return None
     def _edge_has_freestyle_mark(self, mesh, edge):
         if hasattr(edge, "use_freestyle_mark"):
             return bool(edge.use_freestyle_mark)
-        attributes = getattr(mesh, "attributes", None)
-        if attributes is not None and "freestyle_edge" in attributes:
+        attr = self._find_freestyle_edge_attribute(mesh)
+        if attr is not None:
             try:
-                return bool(attributes["freestyle_edge"].data[edge.index].value)
+                return bool(attr.data[edge.index].value)
             except Exception:
                 pass
         return False
@@ -5756,11 +5827,15 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
         if attributes is None:
             return False
 
-        freestyle_attr = attributes.get("freestyle_edge")
+        freestyle_attr = self._find_freestyle_edge_attribute(mesh)
         if freestyle_attr is None:
-            try:
-                freestyle_attr = attributes.new(name="freestyle_edge", type='BOOLEAN', domain='EDGE')
-            except Exception:
+            for attr_name in ("freestyle_edge", "use_freestyle_mark"):
+                try:
+                    freestyle_attr = attributes.new(name=attr_name, type='BOOLEAN', domain='EDGE')
+                    break
+                except Exception:
+                    freestyle_attr = None
+            if freestyle_attr is None:
                 return False
 
         try:
@@ -5769,26 +5844,40 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
         except Exception:
             return False
 
+    def _collect_marked_edges(self, mesh_candidates):
+        for mesh in mesh_candidates:
+            if mesh is None:
+                continue
+            try:
+                marked = [e for e in mesh.edges if self._edge_has_freestyle_mark(mesh, e)]
+            except Exception:
+                marked = []
+            if marked:
+                return mesh, marked
+        return None, []
+
     def transfer_edges_pair(self, src, tgt):
-        """src? Freestyle Edge ? tgt? ?? (???? ??, ??? ?? KDTree fallback)"""
+        if self.transfer_mode == "UV":
+            return self._transfer_edges_by_uv(src, tgt)
+        if self.transfer_mode == "TOPOLOGY":
+            return self._transfer_edges_by_topology(src, tgt)
+        return self._transfer_edges_by_distance(src, tgt)
+
+    def _transfer_edges_by_topology(self, src, tgt):
         depsgraph = bpy.context.evaluated_depsgraph_get()
         src_eval = src.evaluated_get(depsgraph)
         tgt_eval = tgt.evaluated_get(depsgraph)
         src_eval_mesh = src_eval.to_mesh()
         tgt_eval_mesh = tgt_eval.to_mesh()
 
-        src_world = src.matrix_world
-        tgt_world = tgt.matrix_world
         src_mesh = src.data
         tgt_mesh = tgt.data
-
-        marked_src_edges = [e for e in src_mesh.edges if self._edge_has_freestyle_mark(src_mesh, e)]
+        _, marked_src_edges = self._collect_marked_edges((src_mesh, src_eval_mesh))
         if not marked_src_edges:
             src_eval.to_mesh_clear()
             tgt_eval.to_mesh_clear()
             return 0
 
-        # ?? ????? ??? ??? vertex index ???? ?? ??
         src_signatures = {self._edge_signature(e) for e in marked_src_edges}
         src_signatures.discard(None)
         if src_signatures and len(src_mesh.vertices) == len(tgt_mesh.vertices) and len(src_mesh.edges) == len(tgt_mesh.edges):
@@ -5797,15 +5886,31 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
                 if self._edge_signature(e_tgt) in src_signatures:
                     if self._set_edge_freestyle_mark(tgt_mesh, e_tgt.index, True):
                         copied += 1
+            src_eval.to_mesh_clear()
+            tgt_eval.to_mesh_clear()
             if copied > 0:
-                src_eval.to_mesh_clear()
-                tgt_eval.to_mesh_clear()
                 return copied
+        return self._transfer_edges_by_distance(src, tgt, src_eval, tgt_eval, src_eval_mesh, tgt_eval_mesh)
 
-        # evaluated mesh?? ?? ??(?? ?) ???
+    def _transfer_edges_by_distance(self, src, tgt, src_eval=None, tgt_eval=None, src_eval_mesh=None, tgt_eval_mesh=None):
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        src_eval = src_eval or src.evaluated_get(depsgraph)
+        tgt_eval = tgt_eval or tgt.evaluated_get(depsgraph)
+        src_eval_mesh = src_eval_mesh or src_eval.to_mesh()
+        tgt_eval_mesh = tgt_eval_mesh or tgt_eval.to_mesh()
+
+        src_world = src.matrix_world
+        tgt_world = tgt.matrix_world
+        src_mesh = src.data
+        tgt_mesh = tgt.data
+
+        _, marked_src_edges = self._collect_marked_edges((src_mesh, src_eval_mesh))
+        if not marked_src_edges:
+            src_eval.to_mesh_clear()
+            tgt_eval.to_mesh_clear()
+            return 0
+
         eval_verts = [src_world @ v.co for v in src_eval_mesh.vertices]
-
-        # KDTree ?? (??? ?? ??)
         kd = kdtree.KDTree(len(marked_src_edges))
         for e in marked_src_edges:
             try:
@@ -5816,7 +5921,6 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
                 pass
         kd.balance()
 
-        # ?? ?? ??
         copied = 0
         for e_tgt in tgt_mesh.edges:
             try:
@@ -5833,6 +5937,47 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
         src_eval.to_mesh_clear()
         tgt_eval.to_mesh_clear()
         return copied
+
+    def _transfer_edges_by_uv(self, src, tgt):
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        src_eval = src.evaluated_get(depsgraph)
+        tgt_eval = tgt.evaluated_get(depsgraph)
+        src_eval_mesh = src_eval.to_mesh()
+        tgt_eval_mesh = tgt_eval.to_mesh()
+
+        src_mesh = src.data
+        tgt_mesh = tgt.data
+        _, marked_src_edges = self._collect_marked_edges((src_mesh, src_eval_mesh))
+        if not marked_src_edges:
+            src_eval.to_mesh_clear()
+            tgt_eval.to_mesh_clear()
+            return 0
+
+        src_signatures = {self._uv_signature(src_eval_mesh, e) for e in marked_src_edges}
+        src_signatures.discard(None)
+        if src_signatures and len(src_mesh.edges) == len(tgt_mesh.edges):
+            copied = 0
+            for e_tgt in tgt_mesh.edges:
+                if self._uv_signature(tgt_eval_mesh, e_tgt) in src_signatures:
+                    if self._set_edge_freestyle_mark(tgt_mesh, e_tgt.index, True):
+                        copied += 1
+            src_eval.to_mesh_clear()
+            tgt_eval.to_mesh_clear()
+            if copied > 0:
+                return copied
+
+        result = self._transfer_edges_by_distance(src, tgt, src_eval, tgt_eval, src_eval_mesh, tgt_eval_mesh)
+        return result
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width=360)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "transfer_mode", expand=True)
+        if self.transfer_mode == "DISTANCE":
+            layout.prop(self, "distance")
+        layout.prop(self, "case_sensitive")
 
     def _transfer_for_two_empties(self, src_empty, tgt_empty):
         src_meshes = list(_iter_mesh_descendants(src_empty))
