@@ -28,7 +28,7 @@ from bpy.app.handlers import persistent
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 SHARED_MODULE_SEARCH_PATHS = [
     THIS_DIR,
-    r"C:\Users\hwang\Desktop\codex\rrRender",
+    r"C:\Users\hwang\Desktop\codex\sf_blendLdv_v2",
 ]
 for search_path in SHARED_MODULE_SEARCH_PATHS:
     if search_path and os.path.isdir(search_path) and search_path not in sys.path:
@@ -89,7 +89,7 @@ COC_CATEGORY = "ch"
 SCRIPT_PATH = r"M:\RND\SFtools\2025\lookdev\sf_blendLdv_v2.py"
 SCRIPT_BACKUP_DIR = r"M:\RND\SFtools\2025\lookdev\_t"
 DEPLOY_ALLOWED_USERS = {"hwang"}
-HWANG_LOCAL_SCRIPT_PATH = r"C:\Users\hwang\Desktop\codex\rrRender\sf_blendLdv_v2.py"
+HWANG_LOCAL_SCRIPT_PATH = r"C:\Users\hwang\Desktop\codex\sf_blendLdv_v2\sf_blendLdv_v2.py"
 MODULE_NAME = "sf_blendLdv_v2"
 
 
@@ -327,7 +327,10 @@ def save_browser_state(tool):
         json.dump({
             "project_index": tool.project_index,
             "category": tool.category,
-            "asset_enum": tool.asset_enum
+            "asset_enum": tool.asset_enum,
+            "version_enum": getattr(tool, "version_enum", ""),
+            "project": getattr(tool, "project", ""),
+            "filepath": bpy.data.filepath or "",
         }, f)
 
 CACHE_ROOT = resolve_cache_path()  # ✅ 드라이브 환경에 따라 자동 전환
@@ -563,7 +566,9 @@ class LdvBrowserProperties(bpy.types.PropertyGroup):
 # 씬 열 때 자동 복원
 # ====================================================
 def load_scene_post_handler(dummy):
-    load_browser_state(bpy.context.scene.ldv_browser_tool)
+    tool = bpy.context.scene.ldv_browser_tool
+    if not sync_browser_state_to_current_file(tool, bpy.data.filepath, save_state=True):
+        load_browser_state(tool)
 
 # ====================================================
 # 초고속 스냅샷 + 완전 복원
@@ -881,6 +886,7 @@ class LDV_OT_OpenBlendFile(bpy.types.Operator):
             self.report({'ERROR'}, f"Blend file not found: {blend_file}")
             return {'CANCELLED'}
 
+        save_browser_state(tool)
         bpy.ops.wm.open_mainfile(filepath=blend_file)
         return {'FINISHED'}
 
@@ -2247,14 +2253,69 @@ def load_browser_state(tool):
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE, "r") as f:
             state = json.load(f)
-        tool.project_index = state.get("project_index", 0)
+        saved_project = state.get("project", "")
+        project_keys = list(PROJECTS.keys())
+        if saved_project in project_keys:
+            tool.project_index = project_keys.index(saved_project)
+        else:
+            tool.project_index = state.get("project_index", 0)
         clamp_project_index(tool)
         restored_category = state.get("category", "ch")
         tool.category = COC_CATEGORY if tool.project == COC_PROJECT else restored_category
         tool.asset_enum = state.get("asset_enum", "")
+        try:
+            tool.version_enum = state.get("version_enum", "LATEST")
+        except Exception:
+            pass
         print("[INFO] Browser state restored.")
     else:
         print("[INFO] No previous browser state file found.")
+
+
+def sync_browser_state_to_current_file(tool, filepath=None, save_state=True):
+    refresh_projects_from_pipeline()
+    filepath = (bpy.data.filepath if filepath is None else filepath) or ""
+    normalized_path = filepath.replace("\\", "/")
+    if not normalized_path:
+        return False
+
+    matched_project = ""
+    matched_root = ""
+    for project_name, (_prefix, asset_root) in PROJECTS.items():
+        root = str(asset_root or "").replace("\\", "/").rstrip("/")
+        if root and normalized_path.lower().startswith(root.lower() + "/") and len(root) > len(matched_root):
+            matched_project = project_name
+            matched_root = root
+
+    if not matched_project:
+        return False
+
+    project_keys = list(PROJECTS.keys())
+    if matched_project in project_keys:
+        tool.project_index = project_keys.index(matched_project)
+        clamp_project_index(tool)
+
+    rel_parts = [part for part in normalized_path[len(matched_root):].strip("/").split("/") if part]
+    if matched_project == COC_PROJECT:
+        if not rel_parts:
+            return False
+        asset_name = rel_parts[0]
+        category = COC_CATEGORY
+    else:
+        if len(rel_parts) < 2:
+            return False
+        category = rel_parts[0]
+        asset_name = rel_parts[1]
+
+    tool.category = category
+    tool.asset_enum = asset_name
+
+    publish_path = get_project_publish_blend_path(matched_project, category, asset_name).replace("\\", "/")
+    tool.version_enum = "LATEST" if normalized_path.lower() == publish_path.lower() else os.path.basename(filepath)
+
+    if save_state:
+        save_browser_state(tool)
+    return True
 
 # def find_socket_index(sockets, target_socket):
     # for i, sock in enumerate(sockets):
@@ -6081,13 +6142,17 @@ def register():
 
     # 타이머 등록: 상태 복원
     def load_browser_state_timer():
-        load_browser_state(bpy.context.scene.ldv_browser_tool)
+        tool = bpy.context.scene.ldv_browser_tool
+        if not sync_browser_state_to_current_file(tool, bpy.data.filepath, save_state=True):
+            load_browser_state(tool)
         return None
 
     bpy.app.timers.register(load_browser_state_timer)
     
     if make_paths_absolute not in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.append(make_paths_absolute)    
+        bpy.app.handlers.load_post.append(make_paths_absolute)
+    if load_scene_post_handler not in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.append(load_scene_post_handler)
 
 
 def unregister():
@@ -6123,7 +6188,9 @@ def unregister():
         thumb_previews = None
         
     if make_paths_absolute in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.remove(make_paths_absolute)        
+        bpy.app.handlers.load_post.remove(make_paths_absolute)
+    if load_scene_post_handler in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(load_scene_post_handler)
 
     
 if __name__ == "__main__":

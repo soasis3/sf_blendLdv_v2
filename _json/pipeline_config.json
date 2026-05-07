@@ -1,0 +1,1232 @@
+{
+  "version": 1,
+  "notes": [
+    "This is the shared pipeline config source being prepared for all tools.",
+    "Legacy rrRender JSON files remain in place and are not removed.",
+    "Projects here are normalized from the current 4-script path audit."
+  ],
+  "profiles": {
+    "standard_blender_scene_cut": {
+      "description": "Standard project profile used by THE_TRAP, ARBOBION, BTS, DSC, FUZZ.",
+      "dcc": {
+        "default": "blender",
+        "blender": {
+          "scene_extensions": [
+            ".blend"
+          ],
+          "work_dirs": [
+            "ren",
+            "cfx",
+            "fx"
+          ]
+        },
+        "maya": {
+          "scene_extensions": [
+            ".ma",
+            ".mb"
+          ]
+        }
+      },
+      "scene_browser": {
+        "levels": [
+          {
+            "id": "scene",
+            "label": "Scene"
+          },
+          {
+            "id": "cut",
+            "label": "Cut",
+            "parent_level": "scene"
+          },
+          {
+            "id": "work",
+            "label": "Work",
+            "parent_level": "cut",
+            "fixed_options": [
+              "ren",
+              "cfx",
+              "fx"
+            ],
+            "default": "ren"
+          }
+        ],
+        "file_level_id": "work",
+        "file_extensions": [
+          ".blend"
+        ]
+      },
+      "scene_structure": {
+        "identifier_source": "folder_depth",
+        "scene_level_id": "scene",
+        "cut_level_id": "cut",
+        "work_level_id": "work",
+        "cache_path_mode": "relative_to_work",
+        "cache_relative_path": "cache"
+      },
+      "assets": {
+        "default_categories": [
+          "ch",
+          "bg",
+          "prop"
+        ],
+        "default_geometry_root_hint": "geo"
+      },
+      "cache": {
+        "root_mode": "relative_to_work",
+        "root_template": "{work_path}/cache",
+        "file_template": "{project_prefix}_{scene}_{cut}_{category}_{asset_id}.usd",
+        "match_mode": "by_asset_id_and_category",
+        "extensions": [
+          ".usd"
+        ]
+      },
+      "output": {
+        "version_folder_mode": "v###",
+        "default_version_digits": 3,
+        "file_slot_prefix_template": "{scene}_{cut}_{layer}_"
+      }
+    },
+    "maya_asset_project": {
+      "description": "Legacy Maya asset project profile inferred from CKR-style structure.",
+      "dcc": {
+        "default": "maya",
+        "maya": {
+          "scene_extensions": [
+            ".ma",
+            ".mb"
+          ],
+          "work_dirs": [
+            "ren"
+          ]
+        }
+      },
+      "scene_browser": {
+        "levels": [
+          {
+            "id": "scene",
+            "label": "Scene"
+          },
+          {
+            "id": "cut",
+            "label": "Cut",
+            "parent_level": "scene"
+          },
+          {
+            "id": "work",
+            "label": "Work",
+            "parent_level": "cut",
+            "fixed_options": [
+              "ren"
+            ],
+            "default": "ren"
+          }
+        ],
+        "file_level_id": "work",
+        "file_extensions": [
+          ".ma",
+          ".mb"
+        ]
+      },
+      "scene_structure": {
+        "identifier_source": "folder_depth",
+        "scene_level_id": "scene",
+        "cut_level_id": "cut",
+        "work_level_id": "work",
+        "cache_path_mode": "relative_to_work",
+        "cache_relative_path": "cache"
+      }
+    },
+    "coc_character_filename": {
+      "description": "COC-style filename-driven project profile with custom cache/output behavior.",
+      "dcc": {
+        "default": "maya",
+        "maya": {
+          "scene_extensions": [
+            ".ma",
+            ".mb"
+          ],
+          "work_dirs": [
+            "."
+          ]
+        },
+        "blender": {
+          "scene_extensions": [
+            ".blend"
+          ]
+        }
+      },
+      "scene_browser": {
+        "levels": [
+          {
+            "id": "scene",
+            "label": "Episode"
+          },
+          {
+            "id": "cut",
+            "label": "Cut",
+            "parent_level": "scene"
+          },
+          {
+            "id": "work",
+            "label": "Work",
+            "parent_level": "cut",
+            "fixed_options": [
+              "."
+            ],
+            "default": "."
+          }
+        ],
+        "file_level_id": "work",
+        "file_extensions": [
+          ".ma",
+          ".mb"
+        ]
+      },
+      "scene_structure": {
+        "identifier_source": "filename",
+        "scene_level_id": "scene",
+        "cut_level_id": "cut",
+        "work_level_id": "work",
+        "cache_path_mode": "custom",
+        "cache_relative_path": "cache",
+        "depth_map": {
+          "scene_depth": 4,
+          "cut_depth": 5,
+          "process_depth": 6,
+          "file_depth": 7
+        }
+      },
+      "scene_filename_rules": {
+        "scene_token_pattern": "C\\d+",
+        "cut_token_pattern": "\\d+",
+        "version_pattern": "v\\d+",
+        "example": "C02_1_v01.ma"
+      },
+      "cache": {
+        "root_mode": "custom",
+        "match_mode": "by_asset_id",
+        "extensions": [
+          ".abc",
+          ".usd"
+        ]
+      },
+      "output": {
+        "version_folder_mode": "v###",
+        "default_version_digits": 2,
+        "file_slot_prefix_template": "{scene_token}_{cut_token}_{layer}_"
+      }
+    }
+  },
+  "tool_paths": {
+    "shared_state": {
+      "base_json_dir": "C:/_json",
+      "rrrender_recent_browser_state": "C:/_json/rrRender_recent_browser_state.json",
+      "maya_animout_state": "~/_json/animOut_state_maya.json",
+      "maya_lookdev_state": "~/_json/ldv_browser_state_maya.json",
+      "blender_ldv_state": "%USERPROFILE%/Documents/_json/ldv_browser_state.json"
+    },
+    "rrRender": {
+      "config_dir": "M:/RND/SFtools/2023/render/_json",
+      "local_config_dir": "C:/Users/hwang/Desktop/codex/rrRender/_json",
+      "runtime_config_dir": "C:/_json/rrRender_dev",
+      "deploy_script_path": "M:/RND/SFtools/2023/render/rrRender.py",
+      "deploy_backup_dir": "M:/RND/SFtools/2023/render/_t",
+      "local_dev_script_path": "C:/Users/hwang/Desktop/codex/rrRender/rrRender.py"
+    },
+    "rrAnimout": {
+      "config_dir": "M:/RND/SFtools/2023/render/_json",
+      "local_config_dir": "C:/Users/hwang/Desktop/codex/rrRender/_json",
+      "runtime_config_dir": "C:/_json/rrRender_dev",
+      "deploy_script_path": "M:/RND/SFtools/2023/render/rrAnimout.py",
+      "deploy_backup_dir": "M:/RND/SFtools/2023/render/_t",
+      "local_dev_script_path": "C:/Users/hwang/Desktop/codex/rrRender/rrAnimout.py",
+      "pipeline_module_path": "M:/RND/SFtools/2023/pipeline/"
+    },
+    "rrLookdev": {
+      "deploy_script_path": "M:/RND/SFtools/2023/lookDev/rrLookdev.py",
+      "local_dev_script_path": "C:/Users/hwang/Desktop/codex/rrRender/rrLookdev.py",
+      "pipeline_module_path": "M:/RND/SFtools/2023/pipeline/",
+      "default_state_path": "~/_json/ldv_browser_state_maya.json"
+    },
+    "sf_blendLdv_v2": {
+      "preferred_drives": [
+        "M:/",
+        "S:/"
+      ],
+      "deploy_script_path": "M:/RND/SFtools/2025/lookdev/sf_blendLdv_v2.py",
+      "deploy_backup_dir": "M:/RND/SFtools/2025/lookdev/_t",
+      "local_dev_script_path": "C:/Users/hwang/Desktop/codex/rrRender/sf_blendLdv_v2.py",
+      "state_path": "%USERPROFILE%/Documents/_json/ldv_browser_state.json",
+      "resource_roots": {
+        "network_default": "M:/RND/SFtools/2025/lookdev",
+        "s_drive_default": "S:/assets/scripts"
+      },
+      "resources": {
+        "presets_dir": "M:/RND/SFtools/2025/lookdev/presets",
+        "blend_ldv_light": "blend/ldvLight_v03.blend",
+        "blend_ldv_cycle": "blend/ldvLight_cycle.blend",
+        "blend_sf_paint": "blend/SF_Paint.blend",
+        "json_mi_paint": "blend/MI_Paint.json",
+        "osl_easytoon": "M:/RND/SFtools/2025/lookdev/blend/CNPRK_EasyToon.osl"
+      },
+      "backup_publish_roots": {
+        "coc": "U:/coc",
+        "by_prefix_template": "U:/{prefix}/assets"
+      }
+    }
+  },
+  "project_aliases": {
+    "THE_TRAP": "THE_TRAP",
+    "TTM": "THE_TRAP",
+    "TRAP": "THE_TRAP",
+    "ARBOBION": "ARBOBION",
+    "ARBO_BION": "ARBOBION",
+    "ARB": "ARBOBION",
+    "BTS": "BTS",
+    "CKR": "CKR",
+    "DSC": "DSC",
+    "FUZZ": "FUZZ",
+    "COC": "COC"
+  },
+  "projects": {
+    "THE_TRAP": {
+      "identity": {
+        "project_id": "THE_TRAP",
+        "project_prefix": "ttm",
+        "project_group": "standard",
+        "profile": "standard_blender_scene_cut"
+      },
+      "dcc": {
+        "default": "blender",
+        "blender": {
+          "scene_extensions": [
+            ".blend"
+          ],
+          "work_dirs": [
+            "ren",
+            "cfx",
+            "fx"
+          ]
+        },
+        "maya": {
+          "scene_extensions": [
+            ".ma",
+            ".mb"
+          ]
+        }
+      },
+      "paths": {
+        "project_root": "T:/",
+        "asset_root": "T:/assets",
+        "scene_root": "T:/scenes",
+        "json_root": "T:/",
+        "output_root": "T:/output",
+        "render_preset_json": "T:/_json/renderPreset.json",
+        "render_setting_json": "T:/_json/renderSetting.json"
+      },
+      "scene_browser": {
+        "levels": [
+          {
+            "id": "scene",
+            "label": "Scene",
+            "root_path": "T:/scenes",
+            "path_mode": "children"
+          },
+          {
+            "id": "cut",
+            "label": "Cut",
+            "parent_level": "scene",
+            "path_mode": "children"
+          },
+          {
+            "id": "work",
+            "label": "Work",
+            "parent_level": "cut",
+            "fixed_options": [
+              "ren",
+              "cfx",
+              "fx"
+            ],
+            "default": "ren"
+          }
+        ],
+        "file_level_id": "work",
+        "file_extensions": [
+          ".blend"
+        ]
+      },
+      "scene_structure": {
+        "identifier_source": "folder_depth",
+        "scene_level_id": "scene",
+        "cut_level_id": "cut",
+        "work_level_id": "work",
+        "cache_path_mode": "relative_to_work",
+        "cache_relative_path": "cache"
+      },
+      "assets": {
+        "categories": [
+          {
+            "id": "ch",
+            "label": "Character",
+            "root_path": "T:/assets/ch",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          },
+          {
+            "id": "bg",
+            "label": "Background",
+            "root_path": "T:/assets/bg",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          },
+          {
+            "id": "prop",
+            "label": "Prop",
+            "root_path": "T:/assets/prop",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          }
+        ],
+        "asset_id_rules": {
+          "normalize_case": "lower",
+          "replace_spaces_with": "_",
+          "strip_tokens": [
+            "rig",
+            "mod",
+            "pub",
+            "fin",
+            "final"
+          ],
+          "strip_numeric_suffix": true
+        }
+      },
+      "cache": {
+        "root_mode": "relative_to_work",
+        "root_template": "{work_path}/cache",
+        "file_template": "{project_prefix}_{scene}_{cut}_{category}_{asset_id}.usd",
+        "match_mode": "by_asset_id_and_category",
+        "extensions": [
+          ".usd"
+        ]
+      },
+      "output": {
+        "root_template": "T:/output/ren/{scene}/{scene}_{cut}",
+        "version_folder_mode": "v###",
+        "default_version_digits": 3,
+        "file_slot_prefix_template": "{scene}_{cut}_{layer}_"
+      },
+      "overrides": {
+        "asset_registry": [],
+        "cache_overrides": []
+      }
+    },
+    "ARBOBION": {
+      "identity": {
+        "project_id": "ARBOBION",
+        "project_prefix": "ab",
+        "project_group": "standard",
+        "profile": "standard_blender_scene_cut"
+      },
+      "dcc": {
+        "default": "blender",
+        "blender": {
+          "scene_extensions": [
+            ".blend"
+          ],
+          "work_dirs": [
+            "ren",
+            "cfx",
+            "fx"
+          ]
+        },
+        "maya": {
+          "scene_extensions": [
+            ".ma",
+            ".mb"
+          ]
+        }
+      },
+      "paths": {
+        "project_root": "A:/",
+        "asset_root": "A:/assets",
+        "scene_root": "A:/scenes",
+        "json_root": "A:/",
+        "output_root": "A:/output",
+        "render_preset_json": "A:/_json/renderPreset.json",
+        "render_setting_json": "A:/_json/renderSetting.json"
+      },
+      "scene_browser": {
+        "levels": [
+          {
+            "id": "scene",
+            "label": "Scene",
+            "root_path": "A:/scenes",
+            "path_mode": "children"
+          },
+          {
+            "id": "cut",
+            "label": "Cut",
+            "parent_level": "scene",
+            "path_mode": "children"
+          },
+          {
+            "id": "work",
+            "label": "Work",
+            "parent_level": "cut",
+            "fixed_options": [
+              "ren",
+              "cfx",
+              "fx"
+            ],
+            "default": "ren"
+          }
+        ],
+        "file_level_id": "work",
+        "file_extensions": [
+          ".blend"
+        ]
+      },
+      "scene_structure": {
+        "identifier_source": "folder_depth",
+        "scene_level_id": "scene",
+        "cut_level_id": "cut",
+        "work_level_id": "work",
+        "cache_path_mode": "relative_to_work",
+        "cache_relative_path": "cache"
+      },
+      "assets": {
+        "categories": [
+          {
+            "id": "ch",
+            "label": "Character",
+            "root_path": "A:/assets/ch",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          },
+          {
+            "id": "bg",
+            "label": "Background",
+            "root_path": "A:/assets/bg",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          },
+          {
+            "id": "prop",
+            "label": "Prop",
+            "root_path": "A:/assets/prop",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          }
+        ],
+        "asset_id_rules": {
+          "normalize_case": "lower",
+          "replace_spaces_with": "_",
+          "strip_tokens": [
+            "rig",
+            "mod",
+            "pub",
+            "fin",
+            "final"
+          ],
+          "strip_numeric_suffix": true
+        }
+      },
+      "cache": {
+        "root_mode": "relative_to_work",
+        "root_template": "{work_path}/cache",
+        "file_template": "{project_prefix}_{scene}_{cut}_{category}_{asset_id}.usd",
+        "match_mode": "by_asset_id_and_category",
+        "extensions": [
+          ".usd"
+        ]
+      },
+      "output": {
+        "root_template": "A:/output/ren/{scene}/{scene}_{cut}",
+        "version_folder_mode": "v###",
+        "default_version_digits": 3,
+        "file_slot_prefix_template": "{scene}_{cut}_{layer}_"
+      },
+      "overrides": {
+        "asset_registry": [],
+        "cache_overrides": []
+      }
+    },
+    "BTS": {
+      "identity": {
+        "project_id": "BTS",
+        "project_prefix": "BTS",
+        "project_group": "standard",
+        "profile": "standard_blender_scene_cut"
+      },
+      "dcc": {
+        "default": "blender",
+        "blender": {
+          "scene_extensions": [
+            ".blend"
+          ],
+          "work_dirs": [
+            "ren",
+            "cfx",
+            "fx"
+          ]
+        },
+        "maya": {
+          "scene_extensions": [
+            ".ma",
+            ".mb"
+          ]
+        }
+      },
+      "paths": {
+        "project_root": "B:/",
+        "asset_root": "B:/assets",
+        "scene_root": "B:/scenes",
+        "json_root": "B:/",
+        "output_root": "B:/output",
+        "render_preset_json": "B:/_json/renderPreset.json",
+        "render_setting_json": "B:/_json/renderSetting.json"
+      },
+      "scene_browser": {
+        "levels": [
+          {
+            "id": "scene",
+            "label": "Scene",
+            "root_path": "B:/scenes",
+            "path_mode": "children"
+          },
+          {
+            "id": "cut",
+            "label": "Cut",
+            "parent_level": "scene",
+            "path_mode": "children"
+          },
+          {
+            "id": "work",
+            "label": "Work",
+            "parent_level": "cut",
+            "fixed_options": [
+              "ren",
+              "cfx",
+              "fx"
+            ],
+            "default": "ren"
+          }
+        ],
+        "file_level_id": "work",
+        "file_extensions": [
+          ".blend"
+        ]
+      },
+      "scene_structure": {
+        "identifier_source": "folder_depth",
+        "scene_level_id": "scene",
+        "cut_level_id": "cut",
+        "work_level_id": "work",
+        "cache_path_mode": "relative_to_work",
+        "cache_relative_path": "cache"
+      },
+      "assets": {
+        "categories": [
+          {
+            "id": "ch",
+            "label": "Character",
+            "root_path": "B:/assets/ch",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          },
+          {
+            "id": "bg",
+            "label": "Background",
+            "root_path": "B:/assets/bg",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          },
+          {
+            "id": "prop",
+            "label": "Prop",
+            "root_path": "B:/assets/prop",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          }
+        ],
+        "asset_id_rules": {
+          "normalize_case": "lower",
+          "replace_spaces_with": "_",
+          "strip_tokens": [
+            "rig",
+            "mod",
+            "pub",
+            "fin",
+            "final"
+          ],
+          "strip_numeric_suffix": true
+        }
+      },
+      "cache": {
+        "root_mode": "relative_to_work",
+        "root_template": "{work_path}/cache",
+        "file_template": "{project_prefix}_{scene}_{cut}_{category}_{asset_id}.usd",
+        "match_mode": "by_asset_id_and_category",
+        "extensions": [
+          ".usd"
+        ]
+      },
+      "output": {
+        "root_template": "B:/output/ren/{scene}/{scene}_{cut}",
+        "version_folder_mode": "v###",
+        "default_version_digits": 3,
+        "file_slot_prefix_template": "{scene}_{cut}_{layer}_"
+      },
+      "overrides": {
+        "asset_registry": [],
+        "cache_overrides": []
+      }
+    },
+    "CKR": {
+      "identity": {
+        "project_id": "CKR",
+        "project_prefix": "CKR",
+        "project_group": "standard",
+        "profile": "maya_asset_project"
+      },
+      "dcc": {
+        "default": "maya",
+        "maya": {
+          "scene_extensions": [
+            ".ma",
+            ".mb"
+          ],
+          "work_dirs": [
+            "ren"
+          ]
+        }
+      },
+      "paths": {
+        "project_root": "K:/",
+        "asset_root": "K:/assets",
+        "scene_root": "K:/scenes",
+        "json_root": "K:/",
+        "output_root": "K:/output"
+      },
+      "scene_browser": {
+        "levels": [
+          {
+            "id": "scene",
+            "label": "Scene",
+            "root_path": "K:/scenes",
+            "path_mode": "children"
+          },
+          {
+            "id": "cut",
+            "label": "Cut",
+            "parent_level": "scene",
+            "path_mode": "children"
+          },
+          {
+            "id": "work",
+            "label": "Work",
+            "parent_level": "cut",
+            "fixed_options": [
+              "ren"
+            ],
+            "default": "ren"
+          }
+        ],
+        "file_level_id": "work",
+        "file_extensions": [
+          ".ma",
+          ".mb"
+        ]
+      },
+      "scene_structure": {
+        "identifier_source": "folder_depth",
+        "scene_level_id": "scene",
+        "cut_level_id": "cut",
+        "work_level_id": "work",
+        "cache_path_mode": "relative_to_work",
+        "cache_relative_path": "cache"
+      },
+      "assets": {
+        "categories": [
+          {
+            "id": "ch",
+            "label": "Character",
+            "root_path": "K:/assets/ch",
+            "publish_file_mode": "asset_mod_mb",
+            "publish_file_template": "{root}/{asset_name}/{asset_name}.mb",
+            "asset_id_source": "folder_name"
+          },
+          {
+            "id": "bg",
+            "label": "Background",
+            "root_path": "K:/assets/bg",
+            "publish_file_mode": "asset_mod_mb",
+            "publish_file_template": "{root}/{asset_name}/{asset_name}.mb",
+            "asset_id_source": "folder_name"
+          },
+          {
+            "id": "prop",
+            "label": "Prop",
+            "root_path": "K:/assets/prop",
+            "publish_file_mode": "asset_mod_mb",
+            "publish_file_template": "{root}/{asset_name}/{asset_name}.mb",
+            "asset_id_source": "folder_name"
+          }
+        ],
+        "asset_id_rules": {
+          "normalize_case": "lower",
+          "replace_spaces_with": "_",
+          "strip_tokens": [
+            "rig",
+            "mod",
+            "pub",
+            "fin",
+            "final"
+          ],
+          "strip_numeric_suffix": true
+        }
+      },
+      "cache": {
+        "root_mode": "relative_to_work",
+        "root_template": "{work_path}/cache",
+        "match_mode": "by_asset_id_and_category",
+        "extensions": [
+          ".usd",
+          ".abc"
+        ]
+      },
+      "output": {
+        "root_template": "K:/output/ren/{scene}/{scene}_{cut}",
+        "version_folder_mode": "v###",
+        "default_version_digits": 3,
+        "file_slot_prefix_template": "{scene}_{cut}_{layer}_"
+      },
+      "overrides": {
+        "asset_registry": [],
+        "cache_overrides": []
+      },
+      "migration_notes": [
+        "CKR exists in rrAnimout.py and rrLookdev.py hardcoded project maps.",
+        "rrRender-side JSON did not currently contain CKR, so this entry is inferred from those scripts."
+      ]
+    },
+    "DSC": {
+      "identity": {
+        "project_id": "DSC",
+        "project_prefix": "DSC",
+        "project_group": "standard",
+        "profile": "standard_blender_scene_cut"
+      },
+      "dcc": {
+        "default": "blender",
+        "blender": {
+          "scene_extensions": [
+            ".blend"
+          ],
+          "work_dirs": [
+            "ren",
+            "cfx",
+            "fx"
+          ]
+        },
+        "maya": {
+          "scene_extensions": [
+            ".ma",
+            ".mb"
+          ]
+        }
+      },
+      "paths": {
+        "project_root": "S:/",
+        "asset_root": "S:/assets",
+        "scene_root": "S:/scenes",
+        "json_root": "S:/",
+        "output_root": "S:/output",
+        "render_preset_json": "S:/_json/renderPreset.json",
+        "render_setting_json": "S:/_json/renderSetting.json"
+      },
+      "scene_browser": {
+        "levels": [
+          {
+            "id": "scene",
+            "label": "Scene",
+            "root_path": "S:/scenes",
+            "path_mode": "children"
+          },
+          {
+            "id": "cut",
+            "label": "Cut",
+            "parent_level": "scene",
+            "path_mode": "children"
+          },
+          {
+            "id": "work",
+            "label": "Work",
+            "parent_level": "cut",
+            "fixed_options": [
+              "ren",
+              "cfx",
+              "fx"
+            ],
+            "default": "ren"
+          }
+        ],
+        "file_level_id": "work",
+        "file_extensions": [
+          ".blend"
+        ]
+      },
+      "scene_structure": {
+        "identifier_source": "folder_depth",
+        "scene_level_id": "scene",
+        "cut_level_id": "cut",
+        "work_level_id": "work",
+        "cache_path_mode": "relative_to_work",
+        "cache_relative_path": "cache"
+      },
+      "assets": {
+        "categories": [
+          {
+            "id": "ch",
+            "label": "Character",
+            "root_path": "S:/assets/ch",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          },
+          {
+            "id": "bg",
+            "label": "Background",
+            "root_path": "S:/assets/bg",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          },
+          {
+            "id": "prop",
+            "label": "Prop",
+            "root_path": "S:/assets/prop",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          }
+        ],
+        "asset_id_rules": {
+          "normalize_case": "lower",
+          "replace_spaces_with": "_",
+          "strip_tokens": [
+            "rig",
+            "mod",
+            "pub",
+            "fin",
+            "final"
+          ],
+          "strip_numeric_suffix": true
+        }
+      },
+      "cache": {
+        "root_mode": "relative_to_work",
+        "root_template": "{work_path}/cache",
+        "file_template": "{project_prefix}_{scene}_{cut}_{category}_{asset_id}.usd",
+        "match_mode": "by_asset_id_and_category",
+        "extensions": [
+          ".usd"
+        ]
+      },
+      "output": {
+        "root_template": "S:/output/ren/{scene}/{scene}_{cut}",
+        "version_folder_mode": "v###",
+        "default_version_digits": 3,
+        "file_slot_prefix_template": "{scene}_{cut}_{layer}_"
+      },
+      "overrides": {
+        "asset_registry": [],
+        "cache_overrides": []
+      }
+    },
+    "FUZZ": {
+      "identity": {
+        "project_id": "FUZZ",
+        "project_prefix": "FUZZ",
+        "project_group": "standard",
+        "profile": "standard_blender_scene_cut"
+      },
+      "dcc": {
+        "default": "blender",
+        "blender": {
+          "scene_extensions": [
+            ".blend"
+          ],
+          "work_dirs": [
+            "ren",
+            "cfx",
+            "fx"
+          ]
+        },
+        "maya": {
+          "scene_extensions": [
+            ".ma",
+            ".mb"
+          ]
+        }
+      },
+      "paths": {
+        "project_root": "Z:/",
+        "asset_root": "Z:/assets",
+        "scene_root": "Z:/scenes",
+        "json_root": "Z:/",
+        "output_root": "Z:/output",
+        "render_preset_json": "Z:/_json/renderPreset.json",
+        "render_setting_json": "Z:/_json/renderSetting.json"
+      },
+      "scene_browser": {
+        "levels": [
+          {
+            "id": "scene",
+            "label": "Scene",
+            "root_path": "Z:/scenes",
+            "path_mode": "children"
+          },
+          {
+            "id": "cut",
+            "label": "Cut",
+            "parent_level": "scene",
+            "path_mode": "children"
+          },
+          {
+            "id": "work",
+            "label": "Work",
+            "parent_level": "cut",
+            "fixed_options": [
+              "ren",
+              "cfx",
+              "fx"
+            ],
+            "default": "ren"
+          }
+        ],
+        "file_level_id": "work",
+        "file_extensions": [
+          ".blend"
+        ]
+      },
+      "scene_structure": {
+        "identifier_source": "folder_depth",
+        "scene_level_id": "scene",
+        "cut_level_id": "cut",
+        "work_level_id": "work",
+        "cache_path_mode": "relative_to_work",
+        "cache_relative_path": "cache"
+      },
+      "assets": {
+        "categories": [
+          {
+            "id": "ch",
+            "label": "Character",
+            "root_path": "Z:/assets/ch",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          },
+          {
+            "id": "bg",
+            "label": "Background",
+            "root_path": "Z:/assets/bg",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          },
+          {
+            "id": "prop",
+            "label": "Prop",
+            "root_path": "Z:/assets/prop",
+            "publish_file_mode": "asset_mod_blend",
+            "publish_file_template": "{root}/{asset_name}/mod/{asset_name}.blend",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "geo"
+          }
+        ],
+        "asset_id_rules": {
+          "normalize_case": "lower",
+          "replace_spaces_with": "_",
+          "strip_tokens": [
+            "rig",
+            "mod",
+            "pub",
+            "fin",
+            "final"
+          ],
+          "strip_numeric_suffix": true
+        }
+      },
+      "cache": {
+        "root_mode": "relative_to_work",
+        "root_template": "{work_path}/cache",
+        "file_template": "{project_prefix}_{scene}_{cut}_{category}_{asset_id}.usd",
+        "match_mode": "by_asset_id_and_category",
+        "extensions": [
+          ".usd"
+        ]
+      },
+      "output": {
+        "root_template": "Z:/output/ren/{scene}/{scene}_{cut}",
+        "version_folder_mode": "v###",
+        "default_version_digits": 3,
+        "file_slot_prefix_template": "{scene}_{cut}_{layer}_"
+      },
+      "overrides": {
+        "asset_registry": [],
+        "cache_overrides": []
+      }
+    },
+    "COC": {
+      "identity": {
+        "project_id": "COC",
+        "project_prefix": "COC",
+        "project_group": "special",
+        "profile": "coc_character_filename"
+      },
+      "dcc": {
+        "default": "maya",
+        "maya": {
+          "scene_extensions": [
+            ".ma",
+            ".mb"
+          ],
+          "work_dirs": [
+            "."
+          ]
+        },
+        "blender": {
+          "scene_extensions": [
+            ".blend"
+          ]
+        }
+      },
+      "paths": {
+        "project_root": "S:/PROJECT/COC/02_Production",
+        "asset_root": "S:/PROJECT/COC/02_Production/CHSetup/controller",
+        "scene_root": "S:\\PROJECT\\COC\\02_Production\\Animation\\Detail",
+        "json_root": "C:/_json",
+        "output_root": "S:/PROJECT/COC/02_Production/output",
+        "cache_root": "S:/PROJECT/COC/02_Production/Rendering",
+        "render_preset_json": "C:/_json/renderPreset.json",
+        "render_setting_json": "C:/_json/renderSetting.json"
+      },
+      "scene_browser": {
+        "levels": [
+          {
+            "id": "scene",
+            "label": "Episode",
+            "root_path": "S:/PROJECT/COC/02_Production/Rendering",
+            "path_mode": "children"
+          },
+          {
+            "id": "cut",
+            "label": "Work Folder",
+            "parent_level": "scene",
+            "path_mode": "fixed"
+          },
+          {
+            "id": "work",
+            "label": "File",
+            "parent_level": "cut",
+            "fixed_options": [
+              "maya"
+            ],
+            "default": "maya"
+          }
+        ],
+        "file_level_id": "work",
+        "file_extensions": [
+          ".ma",
+          ".mb"
+        ]
+      },
+      "scene_structure": {
+        "identifier_source": "filename",
+        "scene_depth": 1,
+        "work_folder_name": "maya",
+        "scene_level_id": "scene",
+        "cut_level_id": "cut",
+        "work_level_id": "work",
+        "cache_path_mode": "custom",
+        "cache_relative_path": "cache"
+      },
+      "scene_filename_rules": {
+        "scene_token_pattern": "C\\d+",
+        "cut_token_pattern": "\\d+",
+        "version_pattern": "v\\d+",
+        "example": "C02_1_v01.ma"
+      },
+      "assets": {
+        "categories": [
+          {
+            "id": "character",
+            "label": "Character",
+            "root_path": "S:/PROJECT/COC/02_Production/CHSetup/controller",
+            "publish_file_mode": "direct_pick_or_template",
+            "publish_file_template": "{root}/{asset_id}/{asset_id}_rig_fin.mb",
+            "asset_id_source": "folder_name",
+            "geometry_root_hint": "Geometry/{asset_name}"
+          }
+        ],
+        "asset_id_rules": {
+          "normalize_case": "lower",
+          "replace_spaces_with": "_",
+          "strip_tokens": [
+            "rig",
+            "mod",
+            "pub",
+            "fin",
+            "final"
+          ],
+          "strip_numeric_suffix": true
+        }
+      },
+      "cache": {
+        "root_mode": "custom",
+        "root_template": "S:/PROJECT/COC/02_Production/Rendering",
+        "file_template": "",
+        "match_mode": "by_asset_id",
+        "extensions": [
+          ".abc",
+          ".usd"
+        ]
+      },
+      "output": {
+        "root_template": "S:/PROJECT/COC/02_Production/output/{scene}",
+        "version_folder_mode": "v###",
+        "default_version_digits": 2,
+        "file_slot_prefix_template": "{scene_token}_{cut_token}_{layer}_"
+      },
+      "overrides": {
+        "asset_registry": [],
+        "cache_overrides": []
+      }
+    }
+  }
+}
