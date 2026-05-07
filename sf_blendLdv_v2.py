@@ -5740,6 +5740,60 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
             return False
         return str(domain).upper() == "EDGE"
 
+    def _get_bmesh_freestyle_layer(self, bm):
+        try:
+            layers = bm.edges.layers
+        except Exception:
+            return None
+
+        freestyle_layers = getattr(layers, "freestyle", None)
+        if freestyle_layers is None:
+            return None
+
+        for attr_name in ("active", "verify"):
+            try:
+                attr = getattr(freestyle_layers, attr_name)
+            except Exception:
+                attr = None
+            if attr is None:
+                continue
+            try:
+                return attr() if callable(attr) else attr
+            except Exception:
+                continue
+
+        try:
+            return freestyle_layers.new()
+        except Exception:
+            return None
+
+    def _mesh_marked_edge_indices_bmesh(self, mesh):
+        indices = set()
+        if mesh is None:
+            return indices
+
+        bm = bmesh.new()
+        try:
+            bm.from_mesh(mesh)
+            layer = self._get_bmesh_freestyle_layer(bm)
+            if layer is None:
+                return indices
+            bm.edges.ensure_lookup_table()
+            for edge in bm.edges:
+                try:
+                    if bool(edge[layer]):
+                        indices.add(int(edge.index))
+                except Exception:
+                    continue
+        except Exception:
+            return indices
+        finally:
+            try:
+                bm.free()
+            except Exception:
+                pass
+        return indices
+
     def _find_freestyle_edge_attribute(self, mesh):
         attributes = getattr(mesh, "attributes", None)
         if attributes is None:
@@ -5808,6 +5862,9 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
                 return bool(attr.data[edge.index].value)
             except Exception:
                 pass
+        marked_indices = self._mesh_marked_edge_indices_bmesh(mesh)
+        if marked_indices:
+            return int(edge.index) in marked_indices
         return False
 
     def _set_edge_freestyle_mark(self, mesh, edge_index, value=True):
@@ -5842,7 +5899,31 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
             freestyle_attr.data[edge_index].value = bool(value)
             return True
         except Exception:
+            pass
+
+        bm = bmesh.new()
+        try:
+            bm.from_mesh(mesh)
+            bm.edges.ensure_lookup_table()
+            if edge_index >= len(bm.edges):
+                return False
+            layer = self._get_bmesh_freestyle_layer(bm)
+            if layer is None:
+                return False
+            bm.edges[edge_index][layer] = bool(value)
+            bm.to_mesh(mesh)
+            try:
+                mesh.update()
+            except Exception:
+                pass
+            return True
+        except Exception:
             return False
+        finally:
+            try:
+                bm.free()
+            except Exception:
+                pass
 
     def _edge_mark_indices(self, mesh):
         indices = set()
@@ -5854,14 +5935,17 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
                     indices.add(int(edge.index))
         except Exception:
             pass
-        return indices
+        if indices:
+            return indices
+        return self._mesh_marked_edge_indices_bmesh(mesh)
 
     def _collect_marked_edges(self, mesh_candidates):
         for mesh in mesh_candidates:
             if mesh is None:
                 continue
             try:
-                marked = [e for e in mesh.edges if self._edge_has_freestyle_mark(mesh, e)]
+                marked_indices = self._edge_mark_indices(mesh)
+                marked = [mesh.edges[i] for i in sorted(marked_indices) if i < len(mesh.edges)]
             except Exception:
                 marked = []
             if marked:
