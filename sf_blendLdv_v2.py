@@ -5722,6 +5722,47 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
         base = _strip_blender_numeric_suffix(name)
         return base if self.case_sensitive else base.lower()
 
+    def _edge_has_freestyle_mark(self, mesh, edge):
+        if hasattr(edge, "use_freestyle_mark"):
+            return bool(edge.use_freestyle_mark)
+        attributes = getattr(mesh, "attributes", None)
+        if attributes is not None and "freestyle_edge" in attributes:
+            try:
+                return bool(attributes["freestyle_edge"].data[edge.index].value)
+            except Exception:
+                pass
+        return False
+
+    def _set_edge_freestyle_mark(self, mesh, edge_index, value=True):
+        if mesh is None or edge_index < 0:
+            return False
+
+        try:
+            edge = mesh.edges[edge_index]
+        except Exception:
+            edge = None
+
+        if edge is not None and hasattr(edge, "use_freestyle_mark"):
+            edge.use_freestyle_mark = bool(value)
+            return True
+
+        attributes = getattr(mesh, "attributes", None)
+        if attributes is None:
+            return False
+
+        freestyle_attr = attributes.get("freestyle_edge")
+        if freestyle_attr is None:
+            try:
+                freestyle_attr = attributes.new(name="freestyle_edge", type='BOOLEAN', domain='EDGE')
+            except Exception:
+                return False
+
+        try:
+            freestyle_attr.data[edge_index].value = bool(value)
+            return True
+        except Exception:
+            return False
+
     def transfer_edges_pair(self, src, tgt):
         """src의 Freestyle Edge → tgt에 전이 (엣지 중점 KDTree, distance 사용, evaluated mesh 좌표 보정)"""
         depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -5736,7 +5777,7 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
         tgt_mesh = tgt.data
 
         # 🔹 Freestyle 마크가 지정된 원본 엣지만 사용
-        marked_src_edges = [e for e in src_mesh.edges if e.use_freestyle_mark]
+        marked_src_edges = [e for e in src_mesh.edges if self._edge_has_freestyle_mark(src_mesh, e)]
         if not marked_src_edges:
             src_eval.to_mesh_clear()
             tgt_eval.to_mesh_clear()
@@ -5765,8 +5806,8 @@ class FUZZ_OT_TransferFreestyleEdges(bpy.types.Operator):
                 mid = (v1 + v2) * 0.5
                 co, idx, dist = kd.find(mid)
                 if dist < self.distance:
-                    e_tgt.use_freestyle_mark = True
-                    copied += 1
+                    if self._set_edge_freestyle_mark(tgt_mesh, e_tgt.index, True):
+                        copied += 1
             except:
                 pass
 
